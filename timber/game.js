@@ -117,13 +117,15 @@ const sfx = {
   hammer() { tone(N(96), .04, 'square', .05); noise(.07, .3, 3000, 1500); tone(240, .09, 'square', .06, 0, 130); },
   ouch() { tone(N(91), .08, 'square', .06); tone(N(86), .35, 'triangle', .08, .08, N(64)); },
   rise() { [0, 4, 7].forEach((s, i) => tone(N(74 + s), .07, 'triangle', .05, i * .05)); },
-  right() { [0, 4, 7, 12].forEach((s, i) => tone(N(76 + s), .08, 'square', .045, i * .06)); },
+  right() { [0, 4, 7, 12].forEach((s, i) => tone(N(76 + s), .08, 'square', .045, i * .06)); sfx.bells(.05, 3); },
   wrong() { tone(N(67), .13, 'triangle', .09); tone(N(62), .26, 'triangle', .08, .12, N(60)); },
   step() { noise(.04, .06, 700, 300, 0, 'lowpass'); },
   coin(n = 0) { n = Math.min(n, 12); tone(N(88 + n), .06, 'square', .04); tone(N(95 + n), .1, 'square', .04, .06); },
   pop() { noise(.12, .2, 2000, 5000, 0, 'highpass'); tone(N(84), .08, 'square', .04, .02, N(96)); },
-  sold() { [72, 76, 79, 84, 79, 84, 88, 91].forEach((n, i) => tone(N(n), i === 7 ? .5 : .12, 'square', .055, i * .11)); [48, 55, 60].forEach((n, i) => tone(N(n), .3, 'triangle', .1, i * .33)); },
-  done() { [67, 72, 76, 79, 84].forEach((n, i) => tone(N(n), .1, 'square', .05, i * .07)); },
+  sold() { [72, 76, 79, 84, 79, 84, 88, 91].forEach((n, i) => tone(N(n), i === 7 ? .5 : .12, 'square', .055, i * .11)); [48, 55, 60].forEach((n, i) => tone(N(n), .3, 'triangle', .1, i * .33)); sfx.bells(0, 12); },
+  done() { [67, 72, 76, 79, 84].forEach((n, i) => tone(N(n), .1, 'square', .05, i * .07)); sfx.bells(.1, 8); },
+  // sleigh bells: quick shimmery shakes with a high bell ping in each
+  bells(d = 0, n = 6) { for (let i = 0; i < n; i++) { const t = d + i * .075 + (i & 1) * .02; noise(.09, .05, 9000, 6000, t, 'highpass'); tone(N(98 + [0, 4, 2][i % 3]), .09, 'sine', .022, t); } },
 };
 const SPK_ON = '<svg viewBox="0 0 12 12" fill="currentColor" shape-rendering="crispEdges"><path d="M1 4h2l3-3h1v10H6L3 8H1z"/><path d="M8 4h1v4H8zM10 2h1v8h-1z"/></svg>';
 const SPK_OFF = '<svg viewBox="0 0 12 12" fill="currentColor" shape-rendering="crispEdges"><path d="M1 4h2l3-3h1v10H6L3 8H1z"/><path d="M8 4h1v1h1V4h1v1h-1v2h1v1h-1V7H9v1H8V7h1V5H8z"/></svg>';
@@ -685,7 +687,7 @@ function drawTree(v, t) {
   } else drawSprite(v, T, t.x, GROUND, {frame, flip: T.flip, rot: t.wob, px: 0, py: 0});
 }
 function drawForest(v) {
-  drawBg(v, SPR.bgForest);
+  drawBg(v, SPR.bgForest); drawSnow(v, [0]);
   const T = SPR.tree, L = SPR.log;
   for (const t of forest.trees) if (t.stump) drawSprite(v, SPR.stump, t.x, GROUND + 4, {flip: T.flip});
   for (const t of forest.trees) if (t.log > 0) drawSprite(v, L, t.x + T.trunkWW / 2 + 40 + L.w * L.k / 2, GROUND + 26, {alpha: t.log});
@@ -695,7 +697,7 @@ function drawForest(v) {
   drawParts(v, forest.parts);
 }
 function drawSite(v) {
-  drawBg(v, SPR.bgSite);
+  drawBg(v, SPR.bgSite); drawSnow(v, [0]);
   const Hs = site.house, hs = SPR['house' + Hs.k], hw = houseW(), hy = GROUND + 22;
   drawSprite(v, SPR.plot, SITE_X, GROUND - 4, {k: hw * 1.34 / SPR.plot.w});
   if (site.pile.s > 0) { const k = SPR.logpile.k * site.pile.s; drawSprite(v, SPR.logpile, pileX(), GROUND - 30, {kx: k, ky: k}); }
@@ -717,6 +719,7 @@ function render() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
   if (slide > 0 && slide < 1) { const x = Math.round((1 - slide) * W); drawScene(forest, -slide * W, [0, x]); drawScene(site, (1 - slide) * W, [x, W]); }
   else drawScene(cur, 0);
+  drawSnow(cur.vd, [1, 2]);
   if (flashA > 0) { ctx.fillStyle = `rgba(255,255,255,${flashA})`; ctx.fillRect(0, 0, W, H); }
 }
 
@@ -753,8 +756,41 @@ function drawParts(v, ps) {
   }
   ctx.globalAlpha = 1;
 }
-const CHIP = ['#f2cf94', '#e0b070', '#c8955a', '#fff0c8'], LEAF = ['#3f9446', '#5cb85a', '#2f7a3c', '#e3b23c', '#f0c850'], DUST = ['#efe0c0', '#e0cca0', '#fff4dc'],
-  SPARK = ['#ffffff', '#ffd23f', '#fff3a0'], CONF = ['#ff5f8a', '#ffd23f', '#3ddc84', '#5ec8ff', '#b57bff', '#ff8a2a'];
+// winter: LEAF is snow lumps and a few fir needles, DUST is powder snow, the confetti is in Christmas colours
+const CHIP = ['#f2cf94', '#e0b070', '#c8955a', '#fff0c8'], LEAF = ['#ffffff', '#f2f8ff', '#dcebf8', '#ffffff', '#2f6b45'], DUST = ['#ffffff', '#eef5fd', '#d8e8f6'],
+  SNOW = ['#ffffff', '#f4f9ff', '#dcebf8'], SPARK = ['#ffffff', '#ffd23f', '#fff3a0'], CONF = ['#e63946', '#ffffff', '#2fbf6c', '#ffd23f', '#e63946', '#1f8a4c', '#9fe0ff'];
+
+// ---------- the snowfall: pixel flakes in three layers over the whole screen. The far ones (small, slow, dim) fall
+// behind the trees and Foxino, the near ones (bigger, a little plus shape) in front of everything. They drift with a
+// slow gusty wind and move a little against the camera, so the snow feels deep.
+const FLAKES = [], FD = [.35, .62, 1];
+for (let i = 0, n = REDUCED ? 45 : 120; i < n; i++) FLAKES.push({x: Math.random(), y: Math.random(), z: i % 5 < 2 ? 0 : i % 5 < 4 ? 1 : 2, ph: rand(0, 6.3), sp: rand(.75, 1.25)});
+let windT = 0;
+function stepSnow(dt) {
+  windT += dt;
+  const wind = Math.sin(windT * .23) * .55 + Math.sin(windT * .71 + 1) * .25;
+  for (const f of FLAKES) {
+    const d = FD[f.z];
+    f.y += dt * (.03 + .065 * d) * f.sp * (REDUCED ? .5 : 1);
+    f.x += dt * (wind * .035 * d + Math.sin(windT * 1.4 + f.ph) * .014 * d);
+    if (f.y > 1) { f.y -= 1; f.x = Math.random(); }
+    f.x -= Math.floor(f.x);
+  }
+}
+function drawSnow(v, layers) {
+  const u = Math.max(2, Math.round(Math.min(W, H) / 230)), span = W + 60, camX = v ? v.cx * v.s : 0;
+  ctx.fillStyle = '#ffffff';
+  for (const f of FLAKES) {
+    if (!layers.includes(f.z)) continue;
+    const d = FD[f.z];
+    let x = (f.x * span - camX * d * .3) % span; if (x < 0) x += span;
+    x = Math.round(x - 30); const y = Math.round(f.y * (H + 60) - 30);
+    ctx.globalAlpha = f.z === 0 ? .55 : f.z === 1 ? .8 : .95;
+    if (f.z === 2) { ctx.fillRect(x + u, y, u, u * 3); ctx.fillRect(x, y + u, u * 3, u); }
+    else { const s = u * (f.z + 1); ctx.fillRect(x, y, s, s); }
+  }
+  ctx.globalAlpha = 1;
+}
 
 // ---------- the DOM pop-ups: CHOP!, TIMBER!, OUCH!, the speech bubble, the flying coins
 function burst(sc, text, wx, wy, cls = '') {
@@ -822,15 +858,15 @@ function stepActor(a, dt) {
 }
 function update(dt) {
   areaNow();
-  trauma = Math.max(0, trauma - dt * 2.4); flashA = Math.max(0, flashA - dt * 3);
+  trauma = Math.max(0, trauma - dt * 2.4); flashA = Math.max(0, flashA - dt * 3); stepSnow(dt);
   for (const sc of [forest, site]) { updateView(sc, dt); stepParts(sc, dt); }
   stepActor(forest.fox, dt); stepActor(site.fox, dt);
   const b = site.buyer; if (b.walking) { b.wt += dt; b.bob = Math.abs(Math.sin(b.wt * 9)) * 14; } else b.bob *= Math.exp(-dt * 14);
   for (const t of forest.trees) { if (t.wobA > 0) { t.wobA = Math.max(0, t.wobA - dt * 2.5); t.wob = Math.sin(gameT * 38) * .022 * t.wobA; } else t.wob = 0; }
-  // the lobby: a leaf now and then drifts down from the tree
+  // the lobby: now and then a lump of snow drops from the fir's branches
   if (mode === 'lobby' && forest.trees[0]) {
     lobbyLeafT -= dt;
-    if (lobbyLeafT <= 0) { lobbyLeafT = rand(.6, 1.6); const t = forest.trees[0]; addParts(forest, 1, {x: t.x + rand(-260, 260), y: GROUND - TREE_H * rand(.4, .7), vx: [0, 0], vy: [40, 80], g: 60, life: [4, 6], size: [10, 13], cols: LEAF, kind: 'leaf'}); }
+    if (lobbyLeafT <= 0) { lobbyLeafT = rand(.6, 1.6); const t = forest.trees[0]; addParts(forest, 3, {x: t.x + rand(-220, 220), y: GROUND - TREE_H * rand(.35, .75), sx: 20, sy: 10, vx: [-20, 20], vy: [20, 60], g: 160, life: [2.5, 3.5], size: [8, 14], cols: SNOW, kind: 'leaf'}); }
   }
   stepFlyers(dt); placeBubble();
 }
@@ -975,6 +1011,7 @@ async function chopRight(i) {
   const nx = t.x + notchDx(), ny = notchY();
   addParts(forest, 16, {x: nx, y: ny, sy: 20, vx: [-760, -120], vy: [-950, -250], cols: CHIP, size: [14, 26]});
   addParts(forest, 4, {x: nx, y: ny, vx: [-200, 200], vy: [-200, 0], g: 0, life: [.3, .5], cols: DUST, kind: 'dust', size: [30, 50]});
+  addParts(forest, 12, {x: t.x, y: GROUND - TREE_H * .6, sx: 230, sy: TREE_H * .28, vx: [-70, 70], vy: [0, 140], g: 420, life: [1.1, 1.7], cols: SNOW, kind: 'leaf', size: [10, 20]});
   burst(forest, pick1(['CHOP!', 'CHOP!', 'THWACK!']), nx - 40, ny - 200, 'hi');
   const pips = $('qPips').children; if (pips[t.hits - 1]) pips[t.hits - 1].classList.add('on');
   sfx.right();
@@ -1008,7 +1045,7 @@ async function fell(i) {
   await tween(.75, (p) => { t.fall = .06 + (Math.PI / 2 - .06) * E.inQ(p); });
   sfx.crash(); shake(.75); flash(.25);
   const len = TREE_H - (-T.notch.y * T.k);
-  addParts(forest, 14, {x: t.x + T.trunkWW / 2 + len * .5, y: GROUND - 10, sx: len * .45, vx: [-150, 150], vy: [-260, -60], g: 0, life: [.6, 1], cols: DUST, kind: 'dust', size: [40, 70]});
+  addParts(forest, 22, {x: t.x + T.trunkWW / 2 + len * .5, y: GROUND - 10, sx: len * .5, vx: [-180, 180], vy: [-320, -60], g: 0, life: [.7, 1.2], cols: DUST, kind: 'dust', size: [40, 80]});
   addParts(forest, 26, {x: t.x + len * .85, y: GROUND - 120, sx: 220, sy: 80, vx: [-300, 300], vy: [-700, -200], g: 500, life: [1.2, 2.2], cols: LEAF, kind: 'leaf', size: [16, 22]});
   await tween(.22, (p) => { t.fall = Math.PI / 2 - .07 * Math.sin(p * Math.PI); });
   await sleep(.3);
@@ -1105,7 +1142,7 @@ async function sellHouse() {
   const bx = buyerX();
   await tween(Math.abs(b.x - bx) / 360, ((x0) => (p) => { b.x = lerp(x0, bx, p); })(b.x));
   b.walking = false;
-  say(`What a lovely house! I'll buy it for <b><i class="gc"></i>${info.price}</b>`, site, bx, GROUND + 40 - BUYER_H - 30);
+  say(`Merry Christmas! What a cosy house! I'll buy it for <b><i class="gc"></i>${info.price}</b>`, site, bx, GROUND + 40 - BUYER_H - 30);
   sfx.click();
   await sleep(1.9);
   unsay();
