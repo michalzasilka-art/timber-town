@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#3a2414">
+<title>Timber Town · Fugio</title>
+<meta name="description" content="Timber Town: chop trees with Foxino the lumberjack, build a wooden house and sell it. Every right answer is one chop or one hammer blow.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+/* Timber Town: a portrait phone game drawn in pixel art on a canvas, with chunky pixel panels and buttons (as in Hop Rush)
+   in warm wood colours. --u is one "pixel" of the frames. Upright: the question card is along the bottom; sideways or on
+   a computer (body.side, set by game.js): the card is a column on the right and the scene fills the rest. */
+:root{--u:3px;--ink:#1e120a;--panel:#5a3a22;--panel2:#6e4a2c;--deep:#3a2414;--hi:#ffd23f;--ok:#3ddc84;--no:#ff4d6d;--sky:#7fd0ff;--leaf:#5cb85a;
+  --px:'Press Start 2P',ui-monospace,monospace;--pf:'Pixelify Sans',ui-rounded,system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#3a2414;color:#fff;font-family:var(--pf);-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;overscroll-behavior:none}
+button{font:inherit;color:inherit}
+[hidden]{display:none!important}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+
+/* the pixel frame: notched corners, a dark outline and a light/dark bevel */
+.px{position:relative;background:var(--panel);border:var(--u) solid var(--ink);
+  box-shadow:inset calc(-1*var(--u)) calc(-1*var(--u)) 0 rgba(0,0,0,.3),inset var(--u) var(--u) 0 rgba(255,255,255,.14);
+  clip-path:polygon(0 var(--u),var(--u) var(--u),var(--u) 0,calc(100% - var(--u)) 0,calc(100% - var(--u)) var(--u),100% var(--u),100% calc(100% - var(--u)),calc(100% - var(--u)) calc(100% - var(--u)),calc(100% - var(--u)) 100%,var(--u) 100%,var(--u) calc(100% - var(--u)),0 calc(100% - var(--u)))}
+.pbtn{--c:#4f8f3a;position:relative;cursor:pointer;background:var(--c);border:var(--u) solid var(--ink);color:#fff;font-family:var(--px);text-shadow:2px 2px 0 rgba(0,0,0,.35);
+  box-shadow:inset calc(-1*var(--u)) calc(-1.5*var(--u)) 0 rgba(0,0,0,.32),inset var(--u) var(--u) 0 rgba(255,255,255,.3);
+  clip-path:polygon(0 var(--u),var(--u) var(--u),var(--u) 0,calc(100% - var(--u)) 0,calc(100% - var(--u)) var(--u),100% var(--u),100% calc(100% - var(--u)),calc(100% - var(--u)) calc(100% - var(--u)),calc(100% - var(--u)) 100%,var(--u) 100%,var(--u) calc(100% - var(--u)),0 calc(100% - var(--u)));
+  transition:transform .06s,filter .15s}
+.pbtn:hover:not(:disabled){filter:brightness(1.1)}
+.pbtn:active:not(:disabled){transform:translateY(var(--u));box-shadow:inset var(--u) var(--u) 0 rgba(0,0,0,.3)}
+.pbtn:disabled{cursor:default}
+.pbtn.yellow{--c:var(--hi);color:var(--ink);text-shadow:none}
+.pbtn.dark{--c:var(--deep)} .pbtn.wood{--c:var(--panel2)} .pbtn.red{--c:#d8402f}
+.ptitle{font-family:var(--px);font-weight:400;color:var(--hi);text-shadow:3px 3px 0 var(--ink)}
+.gc{display:inline-block;width:1.05em;height:1.05em;vertical-align:-.15em;background:radial-gradient(circle at 35% 35%,#fff3a0 0 18%,#ffd23f 20% 62%,#e09000 64%);border:2px solid var(--ink);border-radius:50%;flex:none}
+
+/* ---------- the lobby: the forest fills the screen, LEAVE top left, your profile top right, MY TOWN and SOUND on the left,
+   the questions and PLAY in a dock at the bottom */
+#lobby{position:fixed;inset:0;z-index:5;pointer-events:none}
+#lobby>*{pointer-events:auto}
+#leaveBtn{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));padding:12px 14px;font-size:12px}
+#pfBtn{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;max-width:min(250px,calc(100vw - 150px));text-align:left}
+.av{flex:none;width:46px;height:46px;border:3px solid var(--ink);background:radial-gradient(circle at 50% 60%,#ffe9b8 0%,#ffb35a 75%);display:grid;place-items:center;overflow:hidden}
+.av img{width:100%;height:100%;image-rendering:pixelated;object-fit:contain}
+#pfBtn .nm{display:flex;flex-direction:column;gap:5px;min-width:0}
+#pfBtn .nm b{font:600 16px/1 var(--pf);color:#fff;text-shadow:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pfBtn .nm span{display:flex;align-items:center;gap:6px;font-size:9px;white-space:nowrap}
+#pfBtn .nm em{font-style:normal;color:var(--ink);background:var(--hi);padding:3px 4px 2px;text-shadow:none}
+#pfBtn .nm .cn{color:var(--hi)}
+#pfBtn .ed{flex:none;font-size:9px;color:var(--sky);margin-left:2px}
+.lb-title{position:fixed;left:0;right:0;top:calc(max(12px,env(safe-area-inset-top)) + 70px);text-align:center;pointer-events:none!important}
+.lb-title h1{margin:0;font-family:var(--px);font-weight:400;font-size:clamp(24px,7.4vw,46px);line-height:1.1;color:#fff;letter-spacing:.04em;
+  text-shadow:.08em .08em 0 var(--ink),-.04em -.04em 0 var(--ink),.04em -.04em 0 var(--ink),-.04em .04em 0 var(--ink)}
+.lb-title h1 span{color:var(--hi)}
+.lb-side{position:fixed;left:max(12px,env(safe-area-inset-left));top:calc(max(12px,env(safe-area-inset-top)) + 136px);display:flex;flex-direction:column;gap:10px}
+.pbtn.side{width:70px;padding:9px 0 7px;display:flex;flex-direction:column;align-items:center;gap:7px;font-size:8px;line-height:1.3;--c:var(--panel2)}
+.pbtn.side svg{width:26px;height:26px;display:block}
+.dock{position:fixed;left:50%;transform:translateX(-50%);bottom:max(12px,env(safe-area-inset-bottom));width:min(520px,calc(100vw - 24px));padding:8px;display:flex;flex-direction:column;gap:8px}
+.qcard{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;cursor:pointer;text-align:left;background:var(--panel2);color:#fff}
+.qcard .lv{flex:none;display:grid;place-items:center;width:44px;height:44px;font-family:var(--px);font-size:12px;color:var(--ink);background:var(--c,#5ee08a);border:3px solid var(--ink)}
+.qcard .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.qcard .lab{font-family:var(--px);font-size:9px;color:#f3d9b0}
+.qcard .t b{font:700 17px var(--pf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qcard .t small{font-size:13px;color:#f3d9b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qcard .go{flex:none;font-family:var(--px);font-size:9px;color:var(--hi)}
+#playBtn{width:100%;padding:16px 10px;font-size:18px;animation:goPulse 1.6s ease-in-out infinite}
+#playBtn small{display:block;margin-top:8px;font-size:9px;opacity:.8;letter-spacing:0}
+@keyframes goPulse{0%,100%{transform:none}50%{transform:scale(1.025)}}
+body.side .lb-title{top:calc(max(12px,env(safe-area-inset-top)) + 8px)}
+body.side .lb-title h1{font-size:clamp(18px,3.2vw,40px)}
+body.side .lb-side{top:calc(max(12px,env(safe-area-inset-top)) + 64px)}
+body.side .dock{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;width:min(820px,calc(100vw - 24px))}
+body.side #playBtn{width:auto;padding:12px 26px;white-space:nowrap}
+@media (max-height:520px){
+  .lb-side,body.side .lb-side{flex-direction:row;top:calc(max(12px,env(safe-area-inset-top)) + 56px)}
+  .pbtn.side{width:60px;padding:7px 0 5px;gap:5px;font-size:7px}
+  .pbtn.side svg{width:20px;height:20px}
+  .av{width:36px;height:36px}
+  #leaveBtn{padding:10px 12px;font-size:11px}
+  #playBtn{font-size:15px}
+}
+
+/* the sheets (profile, my town, pause) slide up from the bottom */
+.sheet{position:fixed;inset:0;z-index:40;display:none;align-items:flex-end;justify-content:center;background:rgba(30,18,10,.55);padding:12px 12px max(12px,env(safe-area-inset-bottom))}
+.sheet.open{display:flex}
+.sheet-card{width:min(480px,100%);max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:12px;animation:sheetUp .28s cubic-bezier(.2,1.2,.4,1)}
+@keyframes sheetUp{from{transform:translateY(40%);opacity:0}to{transform:none;opacity:1}}
+.sh-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sh-head h3{margin:0;font-size:15px}
+.sh-x{padding:9px 11px;font-size:12px}
+.sh-done{padding:15px;font-size:14px}
+.pf-row{display:flex;align-items:center;gap:12px;padding:10px;background:var(--panel2)}
+.pf-row .av{width:96px;height:96px}
+.pf-row .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.lab2{font-family:var(--px);font-size:9px;color:#f3d9b0}
+#nameIn{width:100%;font:600 20px var(--pf);color:#fff;background:var(--deep);border:3px solid var(--ink);padding:8px;outline:none;-webkit-user-select:text;user-select:text}
+#nameIn:focus{border-color:var(--hi)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.stats div{padding:8px 4px;background:var(--deep);text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
+.stats b{font-family:var(--px);font-size:13px;color:var(--hi);display:flex;align-items:center;gap:5px}
+.stats small{font-family:var(--px);font-size:7px;color:#f3d9b0}
+.town{display:flex;align-items:flex-end;gap:6px;overflow-x:auto;padding:14px 10px 0;min-height:150px;
+  background:linear-gradient(#8fd6ff 0 55%,#7cc650 55% 82%,#6aa83e 82%);border:3px solid var(--ink);-webkit-overflow-scrolling:touch}
+.town .h{flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding-bottom:6px}
+.town .h canvas{display:block;image-rendering:pixelated}
+.town .h span{font-family:var(--px);font-size:7px;color:#fff;background:rgba(30,18,10,.75);padding:3px 4px;white-space:nowrap}
+.town .none{align-self:center;margin:auto;font-family:var(--px);font-size:10px;line-height:1.7;text-align:center;color:var(--ink);padding:10px}
+.pause-btns{display:flex;flex-direction:column;gap:8px}
+.pause-btns .pbtn{padding:15px;font-size:13px}
+
+/* ---------- the game HUD: menu, the goal (logs / house), coins, sound */
+#hud{position:fixed;z-index:9;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));display:flex;align-items:center;gap:6px;pointer-events:none}
+#hud>*{pointer-events:auto}
+#hud .pbtn{flex:none;width:44px;height:44px;padding:0;display:grid;place-items:center;font-size:14px}
+#hud .pbtn svg{width:20px;height:20px}
+#goal{flex:1;min-width:0;height:44px;display:flex;align-items:center;gap:7px;padding:0 9px;font-family:var(--px);font-size:9px;white-space:nowrap}
+#goal .gl{color:#f3d9b0}
+#goal .gi{display:flex;gap:3px;min-width:0;overflow:hidden}
+#goal .gn{margin-left:auto;color:var(--hi)}
+#goal i{flex:none;display:block;width:14px;height:12px;background:#24150a;border:2px solid var(--ink)}
+#goal i.on{background:linear-gradient(90deg,#ffe6b0 0 3px,#e09a4a 3px);box-shadow:inset 0 -2px 0 #a8642a;animation:pipIn .3s cubic-bezier(.3,1.7,.5,1)}
+#goal i.b{width:10px;height:10px}
+#goal i.b.on{background:var(--ok);box-shadow:inset 0 -2px 0 #1f9a55}
+@keyframes pipIn{0%{transform:scale(0)}100%{transform:scale(1)}}
+#coinChip{flex:none;height:44px;display:flex;align-items:center;gap:6px;padding:0 10px;font-family:var(--px);font-size:12px;color:var(--hi)}
+#coinChip.bump{animation:bump .25s ease-out}
+@keyframes bump{50%{transform:scale(1.15)}}
+
+/* ---------- the question card */
+#card{position:fixed;z-index:8;left:50%;bottom:max(8px,env(safe-area-inset-bottom));width:min(560px,calc(100vw - 16px));height:clamp(258px,40vh,340px);
+  transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;padding:10px;transition:transform .3s cubic-bezier(.3,1.2,.5,1),opacity .25s}
+#card.away{transform:translate(-50%,115%);opacity:0;pointer-events:none}
+.q-head{display:flex;align-items:center;gap:8px;font-family:var(--px);font-size:9px;color:#f3d9b0;white-space:nowrap}
+.q-head .q-pips{margin-left:auto;display:flex;gap:4px}
+.q-head .q-pips i{display:block;width:14px;height:14px;background:var(--deep);border:2px solid var(--ink)}
+.q-head .q-pips i.on{background:var(--ok)}
+.q-s{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px 10px;background:#fff4df;color:#2a1a10;border:3px solid var(--ink);overflow:hidden}
+.q-t{font:600 22px/1.3 var(--pf);text-align:center;overflow-wrap:anywhere}
+.q-t i{font-style:normal;font-size:.8em;color:#8a6a4a}
+.q-t .gap{display:inline-block;min-width:3.2em;padding:0 .2em;border-bottom:4px solid #c98a4a;color:#c98a4a;text-align:center}
+.q-t .gap.ok{color:#1f9a55;border-color:#1f9a55}
+.q-t .gap.no{color:#1f9a55;border-color:#d8402f}
+.q-a{display:grid;grid-template-columns:1fr;gap:6px}
+.ans{--c:#4f8f3a;min-height:max(48px,6vh);padding:4px 10px;font:700 20px/1.1 var(--pf);overflow-wrap:anywhere;text-shadow:1px 2px 0 rgba(0,0,0,.35)}
+.ans .k{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-family:var(--px);font-size:9px;opacity:.6}
+.ans.right{--c:#2fbf6c;animation:rightGlow .5s ease-out}
+.ans.wrong{--c:var(--no);animation:shake .35s}
+.ans.reveal{--c:#2fbf6c;animation:blink .45s steps(2) 3}
+.ans.dim{opacity:.4}
+@keyframes rightGlow{0%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes shake{20%{translate:-6px 0}45%{translate:5px 0}70%{translate:-3px 0}100%{translate:0 0}}
+@keyframes blink{50%{filter:brightness(1.5)}}
+.q-tap{display:none;font-family:var(--px);font-size:8px;color:#f3d9b0;text-align:center}
+#card.waiting .q-tap{display:block}
+body.side #card{left:auto;right:max(8px,env(safe-area-inset-right));top:calc(max(8px,env(safe-area-inset-top)) + 54px);bottom:auto;
+  max-height:calc(100% - max(8px,env(safe-area-inset-top)) - 54px - max(8px,env(safe-area-inset-bottom)));width:min(44vw,440px);height:auto;transform:none}
+body.side .q-s{flex:1 1 auto;min-height:110px}
+body.side #card.away{transform:translateX(115%)}
+@media (min-height:600px){body.side .ans{min-height:62px;font-size:24px}body.side #card{gap:10px;padding:12px}body.side .q-s{min-height:200px}}
+@media (max-height:520px){
+  #card{gap:5px;padding:7px}
+  .q-t{font-size:18px}
+  .ans{min-height:38px;font-size:17px}
+  #hud .pbtn,#goal,#coinChip{height:38px}
+  #hud .pbtn{width:38px}
+  body.side #card{top:calc(max(8px,env(safe-area-inset-top)) + 46px)}
+}
+
+/* ---------- pop-ups over the scene: CHOP!, TIMBER!, the buyer's speech bubble, flying coins */
+#fx{position:fixed;inset:0;z-index:7;pointer-events:none;overflow:hidden}
+.burst{position:absolute;transform:translate(-50%,-50%);font-family:var(--px);font-size:clamp(18px,5.4vw,34px);color:#fff;white-space:nowrap;
+  text-shadow:3px 3px 0 var(--ink),-2px -2px 0 var(--ink),2px -2px 0 var(--ink),-2px 2px 0 var(--ink);animation:burst 1.1s steps(11) forwards}
+.burst.hi{color:var(--hi)} .burst.ok{color:#8affb5} .burst.no{color:#ff8a9a}
+.burst.big{font-size:clamp(28px,9vw,58px);animation-duration:1.5s}
+@keyframes burst{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}15%{transform:translate(-50%,-50%) scale(1.15);opacity:1}30%{transform:translate(-50%,-55%) scale(1)}80%{opacity:1}100%{transform:translate(-50%,-110%) scale(1);opacity:0}}
+.stamp{position:absolute;transform:translate(-50%,-50%) rotate(-10deg);font-family:var(--px);font-size:clamp(30px,10vw,64px);color:#fff;background:#d8402f;padding:.25em .4em .2em;border:5px solid var(--ink);
+  box-shadow:6px 6px 0 rgba(0,0,0,.35);animation:stamp .45s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes stamp{0%{transform:translate(-50%,-50%) rotate(-10deg) scale(3);opacity:0}100%{transform:translate(-50%,-50%) rotate(-10deg) scale(1);opacity:1}}
+.bubble{position:absolute;transform:translate(-50%,-100%);width:max-content;max-width:min(250px,64vw);padding:10px 12px;background:#fff;color:#2a1a10;border:3px solid var(--ink);font:700 17px/1.25 var(--pf);text-align:center;
+  box-shadow:4px 4px 0 rgba(0,0,0,.3);animation:bubIn .3s cubic-bezier(.3,1.6,.5,1) both}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-12px;width:14px;height:12px;margin-left:-7px;background:#fff;clip-path:polygon(0 0,100% 0,50% 100%)}
+.bubble b{display:inline-flex;align-items:center;gap:5px;font-family:var(--px);font-size:13px;color:#b07000}
+@keyframes bubIn{0%{transform:translate(-50%,-100%) scale(.3);opacity:0}100%{transform:translate(-50%,-100%) scale(1);opacity:1}}
+.flyc{position:absolute;left:0;top:0;width:20px;height:20px;margin:-10px 0 0 -10px;will-change:transform}
+#flash{position:fixed;inset:0;z-index:30;pointer-events:none;opacity:0;background:#fff}
+#fade{position:fixed;inset:0;z-index:35;pointer-events:none;opacity:0;background:#1e120a;transition:opacity .3s}
+#fade.on{opacity:1}
+
+/* ---------- the end screen */
+#end{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));background:rgba(30,18,10,.6)}
+.end-card{width:min(480px,100%);max-height:100%;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 12px;animation:sheetUp .35s cubic-bezier(.2,1.2,.4,1)}
+.end-card h2{margin:0;font-size:clamp(20px,6.4vw,32px);text-align:center}
+.end-top{display:flex;align-items:center;gap:12px}
+.end-top canvas{image-rendering:pixelated;display:block}
+.end-stars{font-size:36px;letter-spacing:4px;color:#3a2414;text-shadow:2px 2px 0 var(--ink)}
+.end-stars .on{color:var(--hi)}
+.end-stars span{display:inline-block;animation:starPop .5s cubic-bezier(.3,1.9,.5,1) both}
+.end-stars span:nth-child(2){animation-delay:.15s}.end-stars span:nth-child(3){animation-delay:.3s}
+@keyframes starPop{0%{transform:scale(0) rotate(-90deg)}100%{transform:none}}
+.end-rows{width:100%;display:flex;flex-direction:column;gap:4px}
+.end-rows div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;background:var(--panel2);font-size:16px;font-weight:600}
+.end-rows div b{font-family:var(--px);font-size:12px;color:var(--hi);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.end-rows div.tot{background:var(--deep)}
+.review{width:100%;padding:10px;background:#fff4df;color:#2a1a10;border:3px solid var(--ink)}
+.review h4{margin:0 0 6px;font-family:var(--px);font-weight:400;font-size:10px;color:#8a4a1a}
+.review ol{margin:0;padding-left:22px}
+.review li{font-size:16px;font-weight:600;line-height:1.35;margin:4px 0}
+.review .r{color:#1f9a55;font-weight:700}
+.review .w{color:#d8402f;text-decoration:line-through}
+.review .perfect{font-family:var(--px);font-size:10px;line-height:1.6;color:#1f9a55;text-align:center}
+.end-btns{position:sticky;bottom:-14px;width:100%;display:flex;flex-direction:column;gap:8px;padding:8px 0 14px;background:var(--panel)}
+.end-btns .pbtn{padding:15px 10px;font-size:14px}
+/* a short screen held sideways: the end card in two columns (results left; words to practise and the buttons right) */
+@media (max-height:520px) and (min-aspect-ratio:1/1){
+  .end-card{width:min(860px,100%);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto 1fr auto;column-gap:12px;row-gap:6px;align-items:start;padding:10px}
+  .end-card h2{grid-column:1/-1;font-size:20px}
+  .end-top{grid-column:1;grid-row:2}
+  .end-rows{grid-column:1;grid-row:3/5}
+  .end-rows div{padding:5px 8px;font-size:14px}
+  .review{grid-column:2;grid-row:2/4;max-height:100%;overflow:auto}
+  .end-btns{grid-column:2;grid-row:4;position:static;padding:0}
+  .end-btns .pbtn{padding:11px 8px;font-size:12px}
+  .end-stars{font-size:26px}
+}
+#loading{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:#3a2414;font-family:var(--px);font-size:22px;color:var(--hi);text-shadow:3px 3px 0 var(--ink)}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="fx"></div>
+
+<section id="lobby">
+  <button class="pbtn dark" id="leaveBtn" aria-label="Back to Fugio">&#9664; LEAVE</button>
+  <button class="pbtn dark" id="pfBtn" aria-label="Your profile: type your name"></button>
+  <div class="lb-title"><h1>TIMBER <span>TOWN</span></h1></div>
+  <div class="lb-side">
+    <button class="pbtn side" id="townBtn" aria-label="My town: the houses you have sold"><svg viewBox="0 0 13 13" shape-rendering="crispEdges"><path fill="#1e120a" d="M6 0h1v1h1v1h1v1h1v1h1v1h1v1h-1v7H2V6H1V5h1V4h1V3h1V2h1V1h1z"/><path fill="#d8402f" d="M6 1h1v1h1v1h1v1h1v1h1v1H2V5h1V4h1V3h1V2h1z"/><path fill="#c98a4a" d="M3 6h7v6H3z"/><path fill="#8a5528" d="M3 8h7v1H3zM3 10h7v1H3z"/><path fill="#3a2414" d="M5 9h3v3H5z"/><path fill="#9fe0ff" d="M4 7h1v1H4zM8 7h1v1H8z"/></svg><span>MY<br>TOWN</span></button>
+    <button class="pbtn side" id="sndBtn" aria-label="Sound on or off"></button>
+  </div>
+  <div class="dock px" id="dock">
+    <button class="qcard px" id="qcard" aria-label="Choose the questions"></button>
+    <button class="pbtn yellow" id="playBtn"></button>
+  </div>
+  <div class="sheet" id="pfSheet" role="dialog" aria-label="Your profile"><div class="px sheet-card">
+    <div class="sh-head"><h3 class="ptitle">LUMBERJACK</h3><button class="pbtn dark sh-x" data-close aria-label="Close">&#10005;</button></div>
+    <div class="pf-row px"><span class="av" id="pfAv"></span><div class="info"><span class="lab2">YOUR NAME</span><input id="nameIn" maxlength="14" placeholder="Type your name" autocomplete="off" aria-label="Your name"></div></div>
+    <div class="stats" id="pfStats"></div>
+    <button class="pbtn yellow sh-done" data-close>DONE</button>
+  </div></div>
+  <div class="sheet" id="townSheet" role="dialog" aria-label="My town"><div class="px sheet-card">
+    <div class="sh-head"><h3 class="ptitle">MY TOWN</h3><button class="pbtn dark sh-x" data-close aria-label="Close">&#10005;</button></div>
+    <div class="town" id="townRow"></div>
+    <div class="stats" id="townStats"></div>
+    <button class="pbtn yellow sh-done" data-close>DONE</button>
+  </div></div>
+</section>
+
+<section id="hud" hidden>
+  <button class="pbtn dark" id="menuBtn" aria-label="Pause"><svg viewBox="0 0 10 10" shape-rendering="crispEdges" fill="currentColor"><path d="M1 2h8v2H1zM1 6h8v2H1z"/></svg></button>
+  <div id="goal" class="px"></div>
+  <div id="coinChip" class="px"><i class="gc"></i><b id="coinN">0</b></div>
+  <button class="pbtn dark" id="muteBtn" aria-label="Sound on or off"></button>
+</section>
+
+<section id="card" class="px away" aria-live="polite">
+  <div class="q-head"><span id="qKick"></span><span class="q-pips" id="qPips"></span></div>
+  <div class="q-s"><div class="q-t" id="qText"></div></div>
+  <div class="q-a" id="qAns"></div>
+  <div class="q-tap">TAP TO GO ON</div>
+</section>
+
+<section id="end" hidden><div class="px end-card">
+  <h2 class="ptitle" id="endTitle">HOUSE SOLD!</h2>
+  <div class="end-top"><canvas id="endHouse" width="10" height="10"></canvas><div class="end-stars" id="endStars"></div></div>
+  <div class="end-rows" id="endRows"></div>
+  <div class="review" id="endReview"></div>
+  <div class="end-btns"><button class="pbtn yellow" id="nextBtn">BUILD NEXT HOUSE &#9654;</button><button class="pbtn dark" id="toLobbyBtn">LOBBY</button></div>
+</div></section>
+
+<div class="sheet" id="pauseSheet" role="dialog" aria-label="Paused"><div class="px sheet-card">
+  <div class="sh-head"><h3 class="ptitle">PAUSED</h3></div>
+  <div class="pause-btns"><button class="pbtn yellow" id="resumeBtn">GO ON &#9654;</button><button class="pbtn wood" id="pSndBtn"></button><button class="pbtn dark" id="quitBtn">BACK TO THE LOBBY</button></div>
+</div></div>
+
+<div id="flash"></div>
+<div id="fade"></div>
+<div id="loading">TIMBER TOWN</div>
+
+<script src="packages.js?v=1"></script>
+<script src="/shared/pack-picker.js?v=8"></script>
+<script src="art/manifest.js?v=1"></script>
+<script src="game.js?v=1"></script>
+</body>
+</html>
